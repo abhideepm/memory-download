@@ -2,7 +2,8 @@ const fetch = require("node-fetch");
 const fs = require("fs");
 const ffmpeg = require("@ffmpeg-installer/ffmpeg");
 const videoStitch = require("video-stitch");
-const constants = require("./constants.js");
+const dayjs = require("dayjs");
+const { months, mediaTypes, jsonKeys } = require("./constants.js");
 const {
   writeFile,
   getFileName,
@@ -13,34 +14,27 @@ const videoConcat = videoStitch.concat;
 const isDebugging = process.env.DEBUG_MODE;
 
 const checkVideoClip = (prev, cur) => {
-  if (prev["Media Type"] !== "Video" || cur["Media Type"] !== "Video")
+  if (
+    prev[jsonKeys.MEDIA_TYPE] !== mediaTypes.VIDEO ||
+    cur[jsonKeys.MEDIA_TYPE] !== mediaTypes.VIDEO
+  ) {
     return false;
+  }
 
-  if (prev.Date.substring(0, 13) !== prev.Date.substring(0, 13)) return false;
+  const prevDate = dayjs(prev.Date);
+  const curDate = dayjs(cur.Date);
 
-  const times = {
-    prev: {
-      hour: parseInt(prev.Date.substring(11, 13)),
-      minute: parseInt(prev.Date.substring(14, 16)),
-      second: parseInt(prev.Date.substring(17, 19)),
-    },
-    cur: {
-      hour: parseInt(cur.Date.substring(11, 13)),
-      minute: parseInt(cur.Date.substring(14, 16)),
-      second: parseInt(cur.Date.substring(17, 19)),
-    },
-  };
+  if (!prevDate.isSame(curDate, "hour")) {
+    return (
+      prevDate.hour() === 23 &&
+      curDate.hour() === 0 &&
+      prevDate.minute() === 59 &&
+      curDate.minute() === 0
+    );
+  }
 
-  // Handles most cases, allowing for 30 second difference in recording times
-  if (JSON.stringify(times.prev) === JSON.stringify(times.cur)) {
-    return true;
-  } else if (times.prev.hour == times.cur.hour) {
-    if (times.prev.minute == times.cur.minute) {
-      return Math.abs(times.prev.second - times.cur.second) <= 24;
-    } else if (Math.abs(times.prev.minute - times.cur.minute) == 1) {
-      return 48 < times.prev.second && times.cur.second < 12;
-    } else return false;
-  } else return times.prev.minute == 59 && times.cur.minute == 0;
+  const diffSeconds = Math.abs(curDate.diff(prevDate, "second"));
+  return diffSeconds <= 24;
 };
 
 const downloadPhotos = async (photos, failedMemories, sendMessage) => {
@@ -49,9 +43,9 @@ const downloadPhotos = async (photos, failedMemories, sendMessage) => {
   for (let i = 0; i < photos.length; i++) {
     const photo = photos[i];
 
-    const res = await fetch(photo["Download Link"], { method: "POST" }).catch(
-      (e) => fetchErrorHandler(e, photo, failedMemories)
-    );
+    const res = await fetch(photo[jsonKeys.DOWNLOAD_LINK], {
+      method: "POST",
+    }).catch((e) => fetchErrorHandler(e, photo, failedMemories));
     if (!res) continue;
 
     const url = await res.text();
@@ -88,9 +82,9 @@ const downloadVideos = async (videos, failedMemories, sendMessage) => {
   for (let i = 0; i < videos.length; i++) {
     const video = videos[i];
 
-    const res = await fetch(video["Download Link"], { method: "POST" }).catch(
-      (e) => fetchErrorHandler(e, video, failedMemories)
-    );
+    const res = await fetch(video[jsonKeys.DOWNLOAD_LINK], {
+      method: "POST",
+    }).catch((e) => fetchErrorHandler(e, video, failedMemories));
     if (!res) continue;
 
     const url = await res.text();
@@ -112,7 +106,14 @@ const downloadVideos = async (videos, failedMemories, sendMessage) => {
         .then(async (outputFile) => {
           await updateFileMetadata(outputFile, prevMemory);
 
-          for (const clip of clips) fs.rmSync(clip.fileName);
+          for (const clip of clips) {
+            try {
+              fs.rmSync(clip.fileName);
+            } catch (err) {
+              if (isDebugging)
+                console.log(`Failed to remove clip: ${clip.fileName}`);
+            }
+          }
         })
         .catch((err) => {
           sendMessage({
@@ -192,7 +193,7 @@ const handleUpdateMessages = ({
       type,
       date: {
         year: date.year,
-        month: constants.months[date.month],
+        month: months[date.month],
       },
       total: count === 1 ? total : undefined,
     });
@@ -208,7 +209,8 @@ const fetchErrorHandler = (err, memory, failedMemories) => {
 
 const removeFailedMemory = (memory, failedMemories) => {
   const index = failedMemories.findIndex(
-    (failedMemory) => failedMemory["Download Link"] === memory["Download Link"]
+    (failedMemory) =>
+      failedMemory[jsonKeys.DOWNLOAD_LINK] === memory[jsonKeys.DOWNLOAD_LINK]
   );
 
   if (index > -1) {

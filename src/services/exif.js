@@ -12,7 +12,6 @@ const updateExifData = async (
 ) => {
   const extension = extname(fileName);
   if (extension === ".mp4") {
-    // mp4 files are not supported by exiftool
     return;
   }
   const exifFormattedDate = dayjs
@@ -27,9 +26,16 @@ const updateExifData = async (
     GPSLongitudeRef: geolocationData.longitude > 0 ? "East" : "West",
   });
 
-  await unlink(`${fileName}_original`);
+  try {
+    await unlink(`${fileName}_original`);
+  } catch {
+    // Original file may not exist if exiftool didn't create a backup
+  }
 };
+
+const endExifTool = () => exiftool.end();
 
 module.exports = {
   updateExifData,
+  endExifTool,
 };

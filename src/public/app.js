@@ -160,7 +160,7 @@ ipcRenderer.on("message", (event, data) => {
       currentCount = count.allTime.photos + count.allTime.videos;
     }
 
-    const percent = `${parseInt((currentCount / total) * 100)}%`;
+    const percent = `${Math.floor((currentCount / total) * 100)}%`;
     progressBar.style.width = percent;
     progress.innerHTML = percent;
   }

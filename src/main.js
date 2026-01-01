@@ -1,6 +1,7 @@
 const path = require("path");
 const { app, BrowserWindow, shell, ipcMain, dialog } = require("electron");
 const { downloadMemories } = require("./memoryDownloader");
+const { endExifTool } = require("./services/exif");
 const dayjs = require("dayjs");
 const utc = require("dayjs/plugin/utc");
 
@@ -59,7 +60,10 @@ const createWindow = () => {
 app.whenReady().then(() => {
   const window = createWindow();
 
-  app.on("window-all-closed", app.quit);
+  app.on("window-all-closed", () => {
+    endExifTool();
+    app.quit();
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

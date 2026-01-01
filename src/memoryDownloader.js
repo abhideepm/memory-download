@@ -7,14 +7,9 @@ const {
   getMemoryDataFromJSON,
   getOutputInfo,
 } = require("./services/fileServices.js");
+const { mediaTypes, jsonKeys } = require("./services/constants.js");
 
 const isDebugging = process.env.DEBUG_MODE;
-
-const failedMemories = {
-  photos: [],
-  videos: [],
-  reAttempted: [],
-};
 
 const downloadMemories = async (
   filepath,
@@ -22,14 +17,20 @@ const downloadMemories = async (
   options,
   sendMessage
 ) => {
+  const failedMemories = {
+    photos: [],
+    videos: [],
+    reAttempted: [],
+  };
+
   initializeEnvironment(filepath, outputDirectory);
 
   const data = getMemoryDataFromJSON(filepath);
 
-  if (!data["Saved Media"]) {
+  if (!data[jsonKeys.SAVED_MEDIA]) {
     sendMessage({
       error: new Error(
-        'Invalid memories_history.json file provided. No "Saved Media" found.'
+        `Invalid memories_history.json file provided. No "${jsonKeys.SAVED_MEDIA}" found.`
       ),
       message:
         "Unable to parse the file you provided.<br />Please try uploading the <tt>memories_history.json</tt> file again.",
@@ -37,7 +38,7 @@ const downloadMemories = async (
     return;
   }
 
-  const memories = data["Saved Media"].reverse();
+  const memories = data[jsonKeys.SAVED_MEDIA].reverse();
 
   if (options.concurrent) {
     const sortedMemories = {};
@@ -55,7 +56,7 @@ const downloadMemories = async (
           const memory = memories[j];
 
           if (year === memory.Date.substring(0, 4)) {
-            if (memory["Media Type"] === "Image") {
+            if (memory[jsonKeys.MEDIA_TYPE] === mediaTypes.IMAGE) {
               sortedMemories[year].photos.push(memory);
             } else {
               sortedMemories[year].videos.push(memory);
@@ -157,7 +158,7 @@ const downloadMemories = async (
     let total = 0;
 
     for (const memory of memories) {
-      if (memory["Media Type"] === "Image") {
+      if (memory[jsonKeys.MEDIA_TYPE] === mediaTypes.IMAGE) {
         photos.push(memory);
       } else {
         videos.push(memory);

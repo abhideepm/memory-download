@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
-const constants = require("./constants.js");
+const dayjs = require("dayjs");
+const { months, mediaTypes, jsonKeys } = require("./constants.js");
 const { updateExifData } = require("./exif");
 
 const isDebugging = process.env.DEBUG_MODE;
@@ -17,11 +18,12 @@ const initializeEnvironment = (file, output) => {
 };
 
 const getFileName = async (memory, isConcatenatedVideo = false) => {
-  const isPhoto = memory["Media Type"] === "Image";
+  const isPhoto = memory[jsonKeys.MEDIA_TYPE] === mediaTypes.IMAGE;
   const extension = isPhoto ? "jpg" : "mp4";
-  const year = memory["Date"].substring(0, 4);
-  const month = constants.months[memory["Date"].substring(5, 7)];
-  const day = memory["Date"].substring(8, 10);
+  const memoryDate = dayjs(memory[jsonKeys.DATE]);
+  const year = memoryDate.format("YYYY");
+  const month = months[memoryDate.format("MM")];
+  const day = memoryDate.format("DD");
   let fileName;
 
   if (!fs.existsSync(outputDirectory))
@@ -68,18 +70,22 @@ const writeFile = async (file, data) => {
 };
 
 const updateFileMetadata = (file, memory) => {
-  const date = new Date(memory.Date);
+  const date = dayjs(memory[jsonKeys.DATE]).toDate();
   fs.utimes(file, date, date, () => {});
 
-  // parse latitude and longitude 'x, y' from `Latitude, Longitude: x, y` string
-  const geolocationString = memory.Location.split(": ")[1];
+  const locationParts = memory[jsonKeys.LOCATION]?.split(": ");
+  if (!locationParts || locationParts.length < 2) {
+    return;
+  }
+
+  const geolocationString = locationParts[1];
   const [latitude, longitude] = geolocationString.split(", ");
   const geolocationData = {
     latitude: parseFloat(latitude),
     longitude: parseFloat(longitude),
   };
 
-  return updateExifData(file, memory.Date, geolocationData);
+  return updateExifData(file, memory[jsonKeys.DATE], geolocationData);
 };
 
 const getOutputInfo = () => {

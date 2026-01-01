@@ -13,4 +13,15 @@ module.exports = {
     11: "November",
     12: "December",
   },
+  mediaTypes: {
+    IMAGE: "Image",
+    VIDEO: "Video",
+  },
+  jsonKeys: {
+    SAVED_MEDIA: "Saved Media",
+    MEDIA_TYPE: "Media Type",
+    DATE: "Date",
+    DOWNLOAD_LINK: "Download Link",
+    LOCATION: "Location",
+  },
 };
